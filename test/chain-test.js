@@ -164,7 +164,7 @@ chain.on('disconnect', (entry, block) => {
   wallet.removeBlock(entry, block.txs);
 });
 
-describe('Chain', function() {
+describe.only('Chain', function() {
   this.timeout(process.browser ? 1200000 : 60000);
 
   it('should open chain and miner', async () => {
@@ -1043,6 +1043,26 @@ describe('Chain', function() {
 
     assert(forked);
     assert.bufferEqual(block2.hash(), chain.tip.hash);
+  });
+
+  it('should activate great wall network upgrade', async () => {
+    const network = chain.network;
+
+    const mtp = await chain.getMedianTime(chain.tip);
+
+    // make sure we don't activate it in the past.
+    const activationTime = Math.max(network.now(), mtp + 1);
+
+    // modify activation time for test
+    network.block.greatWallActivationTime = activationTime;
+    assert.strictEqual(chain.state.hasGreatWallActivation(), false);
+
+    // make sure we have MTP is more than activationTime
+    for (let i=0; i < consensus.MEDIAN_TIMESPAN; i++) {
+      await chain.add(await cpu.mineBlock());
+    }
+
+    assert.strictEqual(chain.state.hasGreatWallActivation(), true);
   });
 
   it('should cleanup', async () => {
